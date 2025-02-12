@@ -59,7 +59,7 @@ export default function SearchSpecies({ sessionId }: { sessionId: string }) {
         .filter((species) => {
           const query = searchQuery?.toLowerCase() ?? ""; // Normalize the search query
           return (
-            species.common_name.toLowerCase().includes(query) ?? // Filter by scientific name
+            species.scientific_name.toLowerCase().includes(query) ?? // Filter by scientific name
             (species.common_name && species.common_name.toLowerCase().includes(query)) ?? // Filter by common name (if not null)
             (species.description && species.description.toLowerCase().includes(query)) // Filter by description (if exists)
           );
