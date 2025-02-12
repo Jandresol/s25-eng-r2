@@ -20,10 +20,14 @@ import { createBrowserSupabaseClient } from "@/lib/client-utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState, type BaseSyntheticEvent } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import type { Database } from "@/lib/schema";
+type Species = Database["public"]["Tables"]["species"]["Row"];
 
-// We use zod (z) to define a schema for the "Add species" form.
+
+// We use zod (z) to define a schema for the "Edit species" form.
 // zod handles validation of the input values with methods like .string(), .nullable(). It also processes the form inputs with .transform() before the inputs are sent to the database.
 
 // Define kingdom enum for use in Zod schema and displaying dropdown options in the form
@@ -74,7 +78,7 @@ const defaultValues: Partial<FormData> = {
   description: null,
 };
 
-export default function AddSpeciesDialog({ userId }: { userId: string }) {
+export default function EditSpeciesDialog({ userId, species }: { userId: string; species: Species; }) {
   const router = useRouter();
 
   // Control open/closed state of the dialog
@@ -83,15 +87,30 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
   // Instantiate form functionality with React Hook Form, passing in the Zod schema (for validation) and default values
   const form = useForm<FormData>({
     resolver: zodResolver(speciesSchema),
-    defaultValues,
+    defaultValues: {}, // Initialize with an empty object
     mode: "onChange",
   });
+
+  useEffect(() => {
+    // Update default values dynamically when the component re-renders
+    form.reset({
+      ...defaultValues,
+      scientific_name: species.scientific_name ?? "", // Use existing value or an empty string
+      common_name: species.common_name ?? null,
+      kingdom: species.kingdom ?? "Animalia",
+      total_population: species.total_population ?? null,
+      image: species.image ?? null,
+      description: species.description ?? null,
+    });
+  }, [species, form.reset, form]);
+
 
   const onSubmit = async (input: FormData) => {
     // The `input` prop contains data that has already been processed by zod. We can now use it in a supabase query
     const supabase = createBrowserSupabaseClient();
-    const { error } = await supabase.from("species").insert([
-      {
+    const { error } = await supabase
+      .from("species")
+      .update({
         author: userId,
         common_name: input.common_name,
         description: input.description,
@@ -99,8 +118,9 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
         scientific_name: input.scientific_name,
         total_population: input.total_population,
         image: input.image,
-      },
-    ]);
+      })
+      .eq("id", species.id);
+
 
     // Catch and report errors from Supabase and exit the onSubmit function with an early 'return' if an error occurred.
     if (error) {
@@ -125,24 +145,27 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
     window.location.reload();
 
     return toast({
-      title: "New species added!",
-      description: "Successfully added " + input.scientific_name + ".",
+      title: "Species updated!",
+      description: "Successfully updated " + input.scientific_name + ".",
     });
+
+    router.refresh();
+
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">
-          <Icons.add className="mr-3 h-5 w-5" />
-          Add Species
+        <Button className="mt-3 w-full" variant="secondary">
+          <Icons.pencil className="mr-3 h-5 w-5" />
+          Edit Species
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-screen overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add Species</DialogTitle>
+          <DialogTitle>Edit Species</DialogTitle>
           <DialogDescription>
-            Add a new species here. Click &quot;Add Species&quot; below when you&apos;re done.
+            Edit a new species here. Click &quot;Edit Species&quot; below when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -271,7 +294,7 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
               />
               <div className="flex">
                 <Button type="submit" className="ml-1 mr-1 flex-auto">
-                  Add Species
+                  Edit Species
                 </Button>
                 <DialogClose asChild>
                   <Button type="button" className="ml-1 mr-1 flex-auto" variant="secondary">
